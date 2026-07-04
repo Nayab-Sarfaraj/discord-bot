@@ -71,7 +71,7 @@ with a signed PING and only saves if verification passes.
 |---|---|---|
 | `PORT` | web | defaults to 3000 |
 | `NODE_ENV` | both | `development` / `production` |
-| `CORS_ORIGIN` | web | must be the deployed frontend's exact origin in prod |
+| `CORS_ORIGIN` | web | comma-separated list — exact origin(s), no trailing slash. Include both localhost and the deployed frontend URL if you need both working. |
 | `MONGODB_URI` | both | Atlas free tier (M0, no card) in prod |
 | `REDIS_URL` | both | **use the `rediss://` (TLS) string from Upstash**, not `redis://` — the plain scheme is the most common Upstash+BullMQ setup mistake. Pick a **Regional** Upstash DB (not Global) and set `maxmemory-policy: noeviction` in the Upstash console, or job data can silently vanish under memory pressure. |
 | `DISCORD_BOT_TOKEN` | scripts, web | Developer Portal → Bot tab |

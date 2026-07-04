@@ -6,6 +6,7 @@ import routes from './routes/index.js';
 import interactionsRoute from './routes/interactions.route.js';
 import { publicRateLimiter } from './middlewares/rate-limit.middleware.js';
 import { errorMiddleware, notFoundMiddleware } from './middlewares/error.middleware.js';
+import { AppError } from './utils/app-error.util.js';
 
 const app = express();
 
@@ -14,7 +15,23 @@ const app = express();
 app.set('trust proxy', 1);
 
 app.use(helmet());
-app.use(cors({ origin: env.corsOrigin }));
+app.use(
+  cors({
+    credentials: true,
+    origin: function (origin, callback) {
+      // No Origin header = same-origin, curl, server-to-server, health
+      // checks — not something a browser sends, so nothing to restrict.
+      if (!origin || env.corsOrigin.includes(origin)) {
+        callback(null, true);
+      } else {
+        // AppError, not a plain Error — this is an expected rejection, not
+        // a bug, so it should return a clean 403 through the errorMiddleware's
+        // isOperational branch rather than a 500 with a logged stack trace.
+        callback(new AppError('Not allowed by CORS', 403));
+      }
+    },
+  }),
+);
 
 // Mounted before express.json(): signature verification needs the raw,
 // unparsed request body.
