@@ -21,6 +21,13 @@ const env = {
   jwtSecret: process.env.JWT_SECRET,
 
   groqApiKey: process.env.GROQ_API_KEY,
+
+  // Render's free tier only offers Web Service + Static Site, not
+  // Background Worker — set true there so the web process also runs the
+  // BullMQ worker in-process. Leave unset locally to run them as two
+  // separate processes (npm run dev + npm run worker), matching the
+  // original architecture.
+  runWorkerInProcess: process.env.RUN_WORKER_IN_PROCESS === 'true',
 };
 
 // Fails loudly at boot instead of confusingly mid-request (e.g. jwt.sign()

@@ -82,21 +82,37 @@ with a signed PING and only saves if verification passes.
 | `JWT_SECRET` | web | admin auth + SSE tickets; generate with e.g. `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"` |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | `seed-admin` only | not read at runtime, just by the seed script |
 | `GROQ_API_KEY` | worker (optional) | console.groq.com, free tier, no card. Leave blank to skip AI triage entirely (`aiStatus: skipped`) — everything else works without it. |
+| `RUN_WORKER_IN_PROCESS` | web (prod only) | `npm start` sets this to `true` automatically — see "Why the worker runs in the same process" below. Leave unset locally. |
 
 `frontend/.env` only needs `VITE_API_BASE_URL` (defaults to `/api`, fine
 behind the Vite dev proxy or if frontend/backend share an origin in prod).
 
 ## Deployment
 
-Deployed to **Render** (three services, all free tier, no card):
+Deployed to **Render** (two services, all free tier, no card):
 
-- **web** — start command `npm run start` in `backend/`. Serves the API,
-  `/api/interactions`, and the SSE endpoint.
-- **worker** — Render **Background Worker**, start command
-  `npm run start:worker` in `backend/`. Consumes the Slack-mirror queue only;
-  never handles HTTP.
+- **web** — start command `npm start` in `backend/`. Serves the API,
+  `/api/interactions`, the SSE endpoint, **and** the BullMQ worker — see
+  below.
 - **frontend** — Render **Static Site**, build command `npm run build` in
   `frontend/`, publish directory `frontend/dist`.
+
+### Why the worker runs in the same process here
+
+The architecture in `CLAUDE.md` calls for `web` and `worker` as separate
+Render services — that's still how the code is structured (`workers/index.js`
+is untouched, still its own entrypoint). But **Render's free tier only
+offers Web Service and Static Site — Background Worker requires a paid
+plan**. Rather than drop the queue architecture, `npm start` sets
+`RUN_WORKER_IN_PROCESS=true`, which makes `server.js` import and start
+`workers/index.js`'s worker *in the same process*, right after the HTTP
+server comes up. It's a deployment-topology adaptation for the free tier,
+not a code quality choice — locally, `npm run dev` + `npm run worker` still
+run as two separate processes exactly as before (leave
+`RUN_WORKER_IN_PROCESS` unset). On a paid Render plan, reverting to a
+proper two-service split is just: remove `RUN_WORKER_IN_PROCESS=true` from
+the web service's start command, add a Background Worker service with start
+command `npm run start:worker`.
 
 Data/queue: **MongoDB Atlas** (M0 free) and **Upstash Redis** (free,
 Regional, `noeviction` — see the `REDIS_URL` note above).
