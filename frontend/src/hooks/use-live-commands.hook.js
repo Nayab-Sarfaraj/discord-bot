@@ -2,11 +2,9 @@ import { useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
 
-function patchCommandsCache(queryClient, updater) {
-  queryClient.setQueryData(['commands'], (old) => {
-    if (!old) return old
-    return { ...old, data: { ...old.data, items: updater(old.data.items), total: old.data.total } }
-  })
+function patchItems(pageData, updater) {
+  if (!pageData) return pageData
+  return { ...pageData, data: { ...pageData.data, items: updater(pageData.data.items) } }
 }
 
 export function useLiveCommands() {
@@ -25,13 +23,21 @@ export function useLiveCommands() {
 
       eventSource.addEventListener('command_created', (event) => {
         const doc = JSON.parse(event.data)
-        patchCommandsCache(queryClient, (items) => [doc, ...items])
+        // A brand-new command always belongs at the top of page 1 — only
+        // ever touch that page's cache, regardless of which page is
+        // currently being viewed. Visibly does nothing unless the admin
+        // happens to be on page 1.
+        queryClient.setQueryData(['commands', 1], (old) => patchItems(old, (items) => [doc, ...items]))
       })
 
       eventSource.addEventListener('command_updated', (event) => {
         const patch = JSON.parse(event.data)
-        patchCommandsCache(queryClient, (items) =>
-          items.map((item) => (item.interactionId === patch.interactionId ? { ...item, ...patch } : item)),
+        // The item could be on whatever page is currently cached — patch
+        // every cached page's data, not just one.
+        queryClient.setQueriesData({ queryKey: ['commands'] }, (old) =>
+          patchItems(old, (items) =>
+            items.map((item) => (item.interactionId === patch.interactionId ? { ...item, ...patch } : item)),
+          ),
         )
       })
     }
