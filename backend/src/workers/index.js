@@ -9,10 +9,14 @@ import { publishCommandUpdated } from '../utils/sse.util.js';
 import { editOriginalInteractionResponse } from '../utils/discord-followup.util.js';
 import { redactSecrets } from '../utils/redact.util.js';
 
-async function start() {
+// skipConnectDB: true when called from server.js, which has already
+// connected — see RUN_WORKER_IN_PROCESS in config/env.js.
+export async function startWorker({ skipConnectDB = false } = {}) {
   assertRequiredEnv(['mongodbUri', 'redisUrl']);
 
-  await connectDB();
+  if (!skipConnectDB) {
+    await connectDB();
+  }
 
   const slackWorker = new Worker(
     'slack-notify',
@@ -98,7 +102,12 @@ async function start() {
   console.log('worker service started, listening on queues: slack-notify, ai-triage');
 }
 
-start().catch((err) => {
-  console.error('Failed to start worker service:', redactSecrets(err.stack ?? err.message ?? String(err)));
-  process.exit(1);
-});
+// Only auto-run when this file is executed directly (npm run worker) — not
+// when server.js imports startWorker for in-process mode.
+const isMainModule = import.meta.url === `file://${process.argv[1]}`;
+if (isMainModule) {
+  startWorker().catch((err) => {
+    console.error('Failed to start worker service:', redactSecrets(err.stack ?? err.message ?? String(err)));
+    process.exit(1);
+  });
+}

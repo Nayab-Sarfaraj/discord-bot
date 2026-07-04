@@ -8,7 +8,7 @@
   "scripts": {
     "dev": "node --watch src/server.js",
     "worker": "node --watch src/workers/index.js",
-    "start": "node src/server.js",
+    "start": "RUN_WORKER_IN_PROCESS=true node src/server.js",
     "start:worker": "node src/workers/index.js",
     "register-commands": "node scripts/register-commands.js",
     "seed-admin": "node scripts/seed-admin.js"
