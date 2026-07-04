@@ -84,18 +84,24 @@ with a signed PING and only saves if verification passes.
 | `GROQ_API_KEY` | worker (optional) | console.groq.com, free tier, no card. Leave blank to skip AI triage entirely (`aiStatus: skipped`) — everything else works without it. |
 | `RUN_WORKER_IN_PROCESS` | web (prod only) | `npm start` sets this to `true` automatically — see "Why the worker runs in the same process" below. Leave unset locally. |
 
-`frontend/.env` only needs `VITE_API_BASE_URL` (defaults to `/api`, fine
-behind the Vite dev proxy or if frontend/backend share an origin in prod).
+`frontend/.env` needs `VITE_API_BASE_URL`. Locally, leave it as `/api` —
+Vite's dev proxy forwards it to `localhost:3000`. **Deployed, it must be the
+full backend URL** (e.g. `https://your-backend.onrender.com/api`) — a
+static frontend host has no proxy, so a relative `/api` path just hits the
+frontend's own domain and 404s. Set it in your host's dashboard (Vercel:
+Project → Settings → Environment Variables) and redeploy — env var changes
+don't apply to an already-built static bundle.
 
 ## Deployment
 
-Deployed to **Render** (two services, all free tier, no card):
-
-- **web** — start command `npm start` in `backend/`. Serves the API,
-  `/api/interactions`, the SSE endpoint, **and** the BullMQ worker — see
-  below.
-- **frontend** — Render **Static Site**, build command `npm run build` in
-  `frontend/`, publish directory `frontend/dist`.
+- **backend** — deployed to **Render** (free tier, no card). Start command
+  `npm start` in `backend/`. Serves the API, `/api/interactions`, the SSE
+  endpoint, **and** the BullMQ worker — see below.
+- **frontend** — static build (`npm run build` in `frontend/`, publish
+  directory `frontend/dist`), deployable to Vercel/Netlify/Render Static
+  Site — any static host works the same way, just make sure
+  `VITE_API_BASE_URL` points at the deployed backend (see above) and that
+  backend's `CORS_ORIGIN` includes the frontend's deployed origin.
 
 ### Why the worker runs in the same process here
 
