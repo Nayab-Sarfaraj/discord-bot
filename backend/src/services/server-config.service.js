@@ -1,6 +1,6 @@
 import { findByGuildId, upsertConfig } from '../repositories/server-config.repository.js';
 import { registerGuildCommands } from '../utils/discord-commands.util.js';
-import { getGuildTextChannels } from '../utils/discord-channel.util.js';
+import { getGuildTextChannels, getGuildName } from '../utils/discord-channel.util.js';
 import { redactSecrets } from '../utils/redact.util.js';
 import { AppError } from '../utils/app-error.util.js';
 
@@ -22,13 +22,20 @@ export async function getConfig(guildId) {
 // pick a channel — a raw Guild ID typed into a text field proves nothing on
 // its own.
 export async function validateGuildAndFetchChannels(guildId) {
+  let channels;
   try {
-    return await getGuildTextChannels(guildId);
+    channels = await getGuildTextChannels(guildId);
   } catch (err) {
     const detail = err.response?.data ? JSON.stringify(err.response.data) : err.message;
     console.error(`Failed to fetch channels for guild ${guildId}:`, redactSecrets(detail));
     throw new AppError('Bot isn\'t in this server yet — click "Add Bot to Your Server" above first, then try again.', 404);
   }
+
+  // Best-effort, never throws — falls back to the raw guildId if it fails
+  // for any reason, since the membership check above already succeeded.
+  const guildName = await getGuildName(guildId);
+
+  return { guildName, channels };
 }
 
 export async function updateConfig(guildId, patch) {

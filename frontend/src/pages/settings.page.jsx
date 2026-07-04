@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { CheckCircle2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { Button } from '@/components/ui/button'
@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Separator } from '@/components/ui/separator'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import api from '@/lib/api'
 import { useServerConfig } from '@/hooks/queries/use-server-config.query'
 import { useUpdateServerConfig } from '@/hooks/mutations/use-update-server-config.mutation'
 import { useValidateGuild } from '@/hooks/mutations/use-validate-guild.mutation'
@@ -17,19 +18,95 @@ const KNOWN_COMMANDS = ['report', 'status']
 // View Channels (1024) + Send Messages (2048) — the minimum the bot needs
 // to post to a channel, nothing more.
 const INVITE_PERMISSIONS = 3072
-const inviteUrl = `https://discord.com/api/oauth2/authorize?client_id=${import.meta.env.VITE_DISCORD_APPLICATION_ID}&permissions=${INVITE_PERMISSIONS}&scope=bot%20applications.commands`
+const FRONTEND_URL = import.meta.env.VITE_FRONTEND_URL || window.location.origin
+const REDIRECT_URI = `${FRONTEND_URL}/settings`
+// response_type=code + redirect_uri makes Discord send the admin back here
+// with ?guild_id=... after they pick a server — this is just a UX hint, per
+// Discord's own docs it isn't trustworthy on its own. We never treat it as
+// proof of anything; validateGuildAndFetchChannels still independently
+// verifies bot membership via the real API before accepting it.
+const inviteUrl = `https://discord.com/api/oauth2/authorize?client_id=${import.meta.env.VITE_DISCORD_APPLICATION_ID}&permissions=${INVITE_PERMISSIONS}&scope=bot%20applications.commands&response_type=code&redirect_uri=${encodeURIComponent(REDIRECT_URI)}`
 
 export default function SettingsPage() {
+  const navigate = useNavigate()
   const [guildId, setGuildId] = useState('')
   const [validatedGuildId, setValidatedGuildId] = useState('')
+  const [validatedGuildName, setValidatedGuildName] = useState('')
   const [channels, setChannels] = useState([])
   const [selectedChannelId, setSelectedChannelId] = useState('')
   const [commandToggles, setCommandToggles] = useState({})
   const [mirrorEnabled, setMirrorEnabled] = useState(true)
+  const [inviteCompleted, setInviteCompleted] = useState(false)
+  const [isAutoValidating, setIsAutoValidating] = useState(false)
 
   const validateGuild = useValidateGuild()
   const { data: configRes, isFetching: isFetchingConfig } = useServerConfig(validatedGuildId)
   const updateConfig = useUpdateServerConfig(validatedGuildId)
+
+  const applyValidationResult = (targetGuildId, guildName, channelsResult) => {
+    setValidatedGuildId(targetGuildId)
+    setValidatedGuildName(guildName)
+    setChannels(channelsResult)
+    if (channelsResult.length === 0) {
+      toast.error('No text channels found — the bot needs View Channel access somewhere in this server.')
+    }
+  }
+
+  const runValidate = (targetGuildId) => {
+    setValidatedGuildId('')
+    setValidatedGuildName('')
+    setChannels([])
+    setSelectedChannelId('')
+
+    validateGuild.mutate(targetGuildId, {
+      onSuccess: (res) => applyValidationResult(targetGuildId, res.data.guildName, res.data.channels),
+      onError: (err) => toast.error(err.message || 'Could not validate this server'),
+    })
+  }
+
+  // Discord redirects back here with ?guild_id=... right after the admin
+  // picks a server on the invite screen (response_type=code + redirect_uri
+  // above) — skips the manual "copy Guild ID, paste it, click Validate"
+  // round trip entirely. Falls back to the manual flow below if it's absent
+  // (normal page load, or revisiting an already-connected guild).
+  //
+  // Deliberately does NOT use the useValidateGuild mutation hook here —
+  // calling a useMutation's .mutate() from inside a mount effect is fragile
+  // under React 18/19 StrictMode: the dev-only double-invoke recreates the
+  // mutation observer on its simulated remount, and the specific mutate()
+  // call's onSuccess/onError callbacks can silently never fire even though
+  // the request completes (confirmed: the network call succeeds, but the
+  // callback wiring gets orphaned). A plain async call sidesteps that
+  // entirely. The manual Step 2 button below is triggered by a real click
+  // event, not an effect, so it isn't subject to this and keeps using the
+  // mutation hook as normal.
+  const hasHandledRedirect = useRef(false)
+  useEffect(() => {
+    if (hasHandledRedirect.current) return
+
+    const params = new URLSearchParams(window.location.search)
+    const redirectedGuildId = params.get('guild_id')
+    if (!redirectedGuildId) return
+
+    hasHandledRedirect.current = true
+    setInviteCompleted(true)
+    setGuildId(redirectedGuildId)
+    setValidatedGuildId('')
+    setValidatedGuildName('')
+    setChannels([])
+    setSelectedChannelId('')
+
+    setIsAutoValidating(true)
+    api
+      .get(`/config/${redirectedGuildId}/channels`)
+      .then((res) => applyValidationResult(redirectedGuildId, res.data.guildName, res.data.channels))
+      .catch((err) => toast.error(err.message || 'Could not validate this server'))
+      .finally(() => setIsAutoValidating(false))
+
+    // Prevents a page refresh from re-triggering this.
+    window.history.replaceState(null, '', window.location.pathname)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Pre-populate from any existing config once a guild validates —
   // avoids resetting toggles/channel every time an already-connected
@@ -48,28 +125,17 @@ export default function SettingsPage() {
     e.preventDefault()
     const trimmed = guildId.trim()
     if (!trimmed) return
-
-    setValidatedGuildId('')
-    setChannels([])
-    setSelectedChannelId('')
-
-    validateGuild.mutate(trimmed, {
-      onSuccess: (res) => {
-        setValidatedGuildId(trimmed)
-        setChannels(res.data.channels)
-        if (res.data.channels.length === 0) {
-          toast.error('No text channels found — the bot needs View Channel access somewhere in this server.')
-        }
-      },
-      onError: (err) => toast.error(err.message || 'Could not validate this server'),
-    })
+    runValidate(trimmed)
   }
 
   const save = () => {
     updateConfig.mutate(
       { channelId: selectedChannelId, commandToggles, mirrorEnabled },
       {
-        onSuccess: () => toast.success('Settings saved'),
+        onSuccess: () => {
+          toast.success('Settings saved')
+          navigate('/')
+        },
         onError: (err) => toast.error(err.message || 'Failed to save settings'),
       },
     )
@@ -90,7 +156,10 @@ export default function SettingsPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Step 1 — Add the bot</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              Step 1 — Add the bot
+              {inviteCompleted && <CheckCircle2 className="size-5 text-green-600 dark:text-green-500" />}
+            </CardTitle>
             <CardDescription>Invite it to the server you want to connect</CardDescription>
           </CardHeader>
           <CardContent>
@@ -119,14 +188,14 @@ export default function SettingsPage() {
                   placeholder="Discord server ID"
                 />
               </div>
-              <Button type="submit" disabled={validateGuild.isPending}>
-                {validateGuild.isPending ? 'Validating...' : 'Validate & Fetch Channels'}
+              <Button type="submit" disabled={validateGuild.isPending || isAutoValidating}>
+                {validateGuild.isPending || isAutoValidating ? 'Validating...' : 'Validate & Fetch Channels'}
               </Button>
             </form>
             {validatedGuildId && (
               <p className="mt-3 flex items-center gap-1.5 text-sm font-medium text-green-600 dark:text-green-500">
                 <CheckCircle2 className="size-4" />
-                Bot found in server ✅
+                Connected to: {validatedGuildName || validatedGuildId} ✅
               </p>
             )}
           </CardContent>

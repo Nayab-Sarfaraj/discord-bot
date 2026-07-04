@@ -10,8 +10,8 @@ export const getServerConfig = asyncHandler(async (req, res) => {
 });
 
 export const getGuildChannels = asyncHandler(async (req, res) => {
-  const channels = await validateGuildAndFetchChannels(req.params.guildId);
-  return SuccessResponse(res, { message: 'Channels fetched', data: { channels } });
+  const { guildName, channels } = await validateGuildAndFetchChannels(req.params.guildId);
+  return SuccessResponse(res, { message: 'Channels fetched', data: { guildName, channels } });
 });
 
 export const putServerConfig = asyncHandler(async (req, res) => {
