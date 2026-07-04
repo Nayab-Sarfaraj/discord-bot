@@ -80,13 +80,14 @@ export default function DashboardPage() {
                     <TableHead>User</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Mirror</TableHead>
-                    <TableHead>AI Triage</TableHead>
+                    <TableHead>AI Tag</TableHead>
+                    <TableHead>AI Summary</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {commands.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
+                      <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
                         No commands yet — run /report or /status in Discord.
                       </TableCell>
                     </TableRow>
@@ -96,7 +97,7 @@ export default function DashboardPage() {
                       <TableCell className="whitespace-nowrap text-muted-foreground">
                         {new Date(cmd.createdAt).toLocaleString()}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="max-w-xs whitespace-normal break-words">
                         <span className="font-medium">/{cmd.commandName}</span>
                         {cmd.commandText ? <span className="text-muted-foreground"> — {cmd.commandText}</span> : null}
                       </TableCell>
@@ -107,17 +108,17 @@ export default function DashboardPage() {
                       <TableCell>
                         <Badge variant={STATUS_VARIANT[cmd.mirrorStatus] ?? 'secondary'}>{cmd.mirrorStatus}</Badge>
                       </TableCell>
-                      <TableCell className="max-w-xs">
+                      <TableCell>
                         {cmd.aiStatus === 'done' ? (
-                          <div className="flex flex-col gap-1">
-                            <Badge variant={AI_CATEGORY_VARIANT[cmd.aiCategory] ?? 'secondary'} className="w-fit capitalize">
-                              {cmd.aiCategory}
-                            </Badge>
-                            <span className="text-xs text-muted-foreground">{cmd.aiSummary}</span>
-                          </div>
+                          <Badge variant={AI_CATEGORY_VARIANT[cmd.aiCategory] ?? 'secondary'} className="capitalize">
+                            {cmd.aiCategory}
+                          </Badge>
                         ) : (
                           <Badge variant={STATUS_VARIANT[cmd.aiStatus] ?? 'secondary'}>{cmd.aiStatus}</Badge>
                         )}
+                      </TableCell>
+                      <TableCell className="max-w-xs whitespace-normal break-words text-muted-foreground">
+                        {cmd.aiStatus === 'done' ? cmd.aiSummary : '—'}
                       </TableCell>
                     </TableRow>
                   ))}
