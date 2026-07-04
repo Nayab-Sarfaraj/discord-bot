@@ -1,7 +1,7 @@
 import { useQuery, keepPreviousData } from '@tanstack/react-query'
 import api from '@/lib/api'
 
-export const COMMANDS_PAGE_SIZE = 20
+export const COMMANDS_PAGE_SIZE = 10
 
 export function useCommands(page = 1) {
   return useQuery({
