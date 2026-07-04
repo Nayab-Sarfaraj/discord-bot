@@ -20,7 +20,17 @@ const env = {
 
   jwtSecret: process.env.JWT_SECRET,
 
-  geminiApiKey: process.env.GEMINI_API_KEY,
+  groqApiKey: process.env.GROQ_API_KEY,
 };
+
+// Fails loudly at boot instead of confusingly mid-request (e.g. jwt.sign()
+// throwing on an undefined secret). Call with only the keys a given
+// process/stage actually needs — not every process needs every var.
+export function assertRequiredEnv(keys) {
+  const missing = keys.filter((key) => !env[key]);
+  if (missing.length > 0) {
+    throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
+  }
+}
 
 export default env;

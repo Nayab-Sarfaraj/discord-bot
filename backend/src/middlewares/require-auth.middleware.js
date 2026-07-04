@@ -1,5 +1,4 @@
-import jwt from 'jsonwebtoken';
-import env from '../config/env.js';
+import { verifyToken } from '../services/auth.service.js';
 import { AppError } from '../utils/app-error.util.js';
 import { asyncHandler } from '../utils/async-handler.util.js';
 
@@ -11,11 +10,6 @@ export const requireAuth = asyncHandler(async (req, res, next) => {
     throw new AppError('Authentication required', 401);
   }
 
-  try {
-    req.admin = jwt.verify(token, env.jwtSecret);
-  } catch {
-    throw new AppError('Invalid or expired token', 401);
-  }
-
+  req.admin = verifyToken(token);
   next();
 });

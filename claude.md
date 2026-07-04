@@ -18,7 +18,7 @@ admin dashboard.
   - `web` — Express API + interactions endpoint + SSE
   - `worker` — BullMQ worker (background jobs only)
 - Notifications: Slack Incoming Webhook
-- AI (optional/stretch): Gemini API, only inside worker jobs, never inline in request handlers
+- AI (optional/stretch): Groq API, only inside worker jobs, never inline in request handlers
 
 ## Frontend Folder Structure
 
