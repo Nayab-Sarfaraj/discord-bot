@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -33,12 +34,16 @@ const AI_CATEGORY_VARIANT = {
 }
 
 export default function DashboardPage() {
+  const [page, setPage] = useState(1)
   const { data: health } = useHealth()
-  const { data: commandsRes, isLoading, isError } = useCommands()
+  const { data: commandsRes, isLoading, isError } = useCommands(page)
   const { logout } = useAuth()
   useLiveCommands()
 
   const commands = commandsRes?.data?.items ?? []
+  const total = commandsRes?.data?.total ?? 0
+  const limit = commandsRes?.data?.limit ?? 20
+  const hasNextPage = page * limit < total
 
   return (
     <div className="min-h-screen bg-muted/30">
@@ -125,6 +130,22 @@ export default function DashboardPage() {
                   ))}
                 </TableBody>
               </Table>
+            )}
+
+            {!isLoading && !isError && total > limit && (
+              <div className="mt-4 flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">
+                  Page {page} of {Math.ceil(total / limit)} ({total} total)
+                </p>
+                <div className="flex gap-2">
+                  <Button variant="outline" disabled={page === 1} onClick={() => setPage((p) => p - 1)}>
+                    Prev
+                  </Button>
+                  <Button variant="outline" disabled={!hasNextPage} onClick={() => setPage((p) => p + 1)}>
+                    Next
+                  </Button>
+                </div>
+              </div>
             )}
           </CardContent>
         </Card>

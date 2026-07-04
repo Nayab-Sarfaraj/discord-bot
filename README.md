@@ -18,9 +18,18 @@ admin dashboard.
   Discord reply. Retries 3x with backoff; failures are visible on the
   dashboard (`mirrorStatus: failed`) instead of silently disappearing.
 - Dashboard (JWT-login-gated): live command log via Server-Sent Events (new
-  rows and mirror-status changes appear without a refresh), and a per-guild
-  settings page to toggle commands on/off or disable Slack mirroring — which
-  actually changes bot behavior on the next command.
+  rows and mirror-status changes appear without a refresh).
+- **Connect Discord flow** on the Settings page: invite the bot (OAuth link),
+  validate it's actually a member of the target guild (real Discord API
+  call — a pasted Guild ID alone proves nothing), pick which channel it
+  mirrors to from a real fetched channel list, then save. First save for a
+  new guild also auto-registers `/report`/`/status` there (guild-scoped,
+  instant) so a newly-connected server doesn't have to wait on global
+  propagation. Per-guild command toggles and a Slack-mirror on/off switch
+  actually change bot behavior on the next command. If Discord's
+  `response_type=code`+`redirect_uri` OAuth flow is set up (see env vars
+  below), the Guild ID and channel list auto-fill after the redirect — no
+  manual copy-paste needed.
 - **AI triage (stretch goal)**: if `GROQ_API_KEY` is set, `/report` text is
   sent to Groq (Llama 3.1) in a BullMQ job — never inline — which returns a
   one-line summary + category (bug/feature/question/other). Shown live on
@@ -84,13 +93,19 @@ with a signed PING and only saves if verification passes.
 | `GROQ_API_KEY` | worker (optional) | console.groq.com, free tier, no card. Leave blank to skip AI triage entirely (`aiStatus: skipped`) — everything else works without it. |
 | `RUN_WORKER_IN_PROCESS` | web (prod only) | `npm start` sets this to `true` automatically — see "Why the worker runs in the same process" below. Leave unset locally. |
 
-`frontend/.env` needs `VITE_API_BASE_URL`. Locally, leave it as `/api` —
-Vite's dev proxy forwards it to `localhost:3000`. **Deployed, it must be the
-full backend URL** (e.g. `https://your-backend.onrender.com/api`) — a
-static frontend host has no proxy, so a relative `/api` path just hits the
-frontend's own domain and 404s. Set it in your host's dashboard (Vercel:
-Project → Settings → Environment Variables) and redeploy — env var changes
-don't apply to an already-built static bundle.
+### Environment variables (`frontend/.env`)
+
+| Variable | Notes |
+|---|---|
+| `VITE_API_BASE_URL` | Local: leave as `/api` — Vite's dev proxy forwards it to `localhost:3000`. **Deployed, it must be the full backend URL** (e.g. `https://your-backend.onrender.com/api`) — a static host has no proxy, so a relative `/api` path just hits the frontend's own domain and 404s. Set it in your host's dashboard (Vercel: Project → Settings → Environment Variables) and **redeploy** — env var changes don't apply to an already-built static bundle. |
+| `VITE_DISCORD_APPLICATION_ID` | Public by design (same ID that's in the bot's own invite link) — needed to build the "Add Bot to Your Server" invite link. |
+| `VITE_FRONTEND_URL` | This app's own deployed URL, e.g. `https://your-app.vercel.app`. Used as the OAuth `redirect_uri` so Discord can send the admin back with `?guild_id=...` after adding the bot. Falls back to `window.location.origin` if unset. **Must exactly match** an entry in the Discord app's OAuth2 → Redirects list (see below) — `<VITE_FRONTEND_URL>/settings`, no trailing slash, `http` vs `https` matters. |
+
+Discord Developer Portal → your app → OAuth2 → General → **Redirects**: add
+both `http://localhost:5173/settings` (local dev) and
+`https://your-app.vercel.app/settings` (deployed) as separate entries, then
+**Save Changes** — this is a strict allowlist, the OAuth invite link fails
+with "Invalid OAuth2 redirect_uri" if the exact URL isn't registered here.
 
 ## Deployment
 
@@ -151,6 +166,12 @@ Operational notes for a live grading window:
   timing out the interaction.
 - Groq unreachable/`GROQ_API_KEY` missing → same pattern as Slack: retries,
   then `aiStatus: failed`, visible on the dashboard, reply already succeeded.
+- Connecting a guild the bot hasn't actually been added to → real Discord API
+  call rejects it with a clear message, nothing gets saved (no bare guildId
+  with no channel/no verified membership sitting in the DB).
+- CORS: unlisted origins get a clean `403` (via the app's own error envelope),
+  not a raw crash; allowed origins and no-`Origin` requests (curl, health
+  checks) both pass through.
 - Secrets (bot token, public key, webhook URL, JWT secret, Groq key,
   DB/Redis URIs) are redacted out of anything logged or returned to a
   client, even inside raw connection-error messages.
