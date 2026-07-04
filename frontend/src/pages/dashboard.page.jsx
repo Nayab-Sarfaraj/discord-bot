@@ -42,7 +42,7 @@ export default function DashboardPage() {
 
   const commands = commandsRes?.data?.items ?? []
   const total = commandsRes?.data?.total ?? 0
-  const limit = commandsRes?.data?.limit ?? 20
+  const limit = commandsRes?.data?.limit ?? 10
   const hasNextPage = page * limit < total
 
   return (
@@ -132,10 +132,10 @@ export default function DashboardPage() {
               </Table>
             )}
 
-            {!isLoading && !isError && total > limit && (
+            {!isLoading && !isError && (
               <div className="mt-4 flex items-center justify-between">
                 <p className="text-sm text-muted-foreground">
-                  Page {page} of {Math.ceil(total / limit)} ({total} total)
+                  Page {page} of {Math.max(1, Math.ceil(total / limit))} ({total} total)
                 </p>
                 <div className="flex gap-2">
                   <Button variant="outline" disabled={page === 1} onClick={() => setPage((p) => p - 1)}>
