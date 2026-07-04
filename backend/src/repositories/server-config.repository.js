@@ -16,6 +16,10 @@ export async function upsertConfig(guildId, patch) {
     doc = new ServerConfig({ guildId });
   }
 
+  if (patch.channelId) {
+    doc.channelId = patch.channelId;
+  }
+
   if (patch.commandToggles) {
     for (const [name, enabled] of Object.entries(patch.commandToggles)) {
       doc.commandToggles.set(name, enabled);
@@ -24,6 +28,10 @@ export async function upsertConfig(guildId, patch) {
 
   if (typeof patch.mirrorEnabled === 'boolean') {
     doc.mirrorEnabled = patch.mirrorEnabled;
+  }
+
+  if (typeof patch.commandsRegistered === 'boolean') {
+    doc.commandsRegistered = patch.commandsRegistered;
   }
 
   return doc.save();

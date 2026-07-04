@@ -1,6 +1,6 @@
 import axios from 'axios';
 import env from '../config/env.js';
-import { getChannelName } from '../utils/discord-channel.util.js';
+import { getChannelName, getGuildName } from '../utils/discord-channel.util.js';
 
 const COMMAND_META = {
   report: { emoji: '📋', color: '#ECB22E' }, // Slack "warning" amber — needs a look
@@ -8,7 +8,7 @@ const COMMAND_META = {
 };
 const DEFAULT_META = { emoji: '🔔', color: '#616061' };
 
-function buildBlocks({ commandName, commandText, username, channelName }) {
+function buildBlocks({ commandName, commandText, username, guildName, channelName }) {
   const { emoji } = COMMAND_META[commandName] ?? DEFAULT_META;
   const nowEpoch = Math.floor(Date.now() / 1000);
 
@@ -20,8 +20,9 @@ function buildBlocks({ commandName, commandText, username, channelName }) {
     {
       type: 'section',
       fields: [
-        { type: 'mrkdwn', text: `*User*\n${username ?? 'unknown'}` },
+        { type: 'mrkdwn', text: `*Server*\n${guildName}` },
         { type: 'mrkdwn', text: `*Channel*\n#${channelName}` },
+        { type: 'mrkdwn', text: `*User*\n${username ?? 'unknown'}` },
       ],
     },
     commandText
@@ -43,13 +44,13 @@ function buildBlocks({ commandName, commandText, username, channelName }) {
 }
 
 export async function processSlackNotify(job) {
-  const { commandName, commandText, username, channelId } = job.data;
+  const { commandName, commandText, username, guildId, channelId } = job.data;
 
   if (!env.slackWebhookUrl) {
     throw new Error('SLACK_WEBHOOK_URL not configured');
   }
 
-  const channelName = await getChannelName(channelId);
+  const [guildName, channelName] = await Promise.all([getGuildName(guildId), getChannelName(channelId)]);
   const { color } = COMMAND_META[commandName] ?? DEFAULT_META;
 
   await axios.post(env.slackWebhookUrl, {
@@ -61,8 +62,8 @@ export async function processSlackNotify(job) {
     attachments: [
       {
         color,
-        fallback: `/${commandName} run by ${username ?? 'unknown'} in #${channelName}`,
-        blocks: buildBlocks({ commandName, commandText, username, channelName }),
+        fallback: `/${commandName} run by ${username ?? 'unknown'} in ${guildName} #${channelName}`,
+        blocks: buildBlocks({ commandName, commandText, username, guildName, channelName }),
       },
     ],
   });

@@ -77,6 +77,7 @@ export default function DashboardPage() {
                   <TableRow>
                     <TableHead>Time</TableHead>
                     <TableHead>Command</TableHead>
+                    <TableHead>Text</TableHead>
                     <TableHead>User</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Mirror</TableHead>
@@ -87,7 +88,7 @@ export default function DashboardPage() {
                 <TableBody>
                   {commands.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
+                      <TableCell colSpan={8} className="py-8 text-center text-muted-foreground">
                         No commands yet — run /report or /status in Discord.
                       </TableCell>
                     </TableRow>
@@ -97,9 +98,9 @@ export default function DashboardPage() {
                       <TableCell className="whitespace-nowrap text-muted-foreground">
                         {new Date(cmd.createdAt).toLocaleString()}
                       </TableCell>
-                      <TableCell className="max-w-xs whitespace-normal break-words">
-                        <span className="font-medium">/{cmd.commandName}</span>
-                        {cmd.commandText ? <span className="text-muted-foreground"> — {cmd.commandText}</span> : null}
+                      <TableCell className="font-medium">/{cmd.commandName}</TableCell>
+                      <TableCell className="max-w-xs whitespace-normal break-words text-muted-foreground">
+                        {cmd.commandText ?? '—'}
                       </TableCell>
                       <TableCell>{cmd.username ?? 'unknown'}</TableCell>
                       <TableCell>

@@ -1,4 +1,4 @@
-import { getConfig, updateConfig } from '../services/server-config.service.js';
+import { getConfig, updateConfig, validateGuildAndFetchChannels } from '../services/server-config.service.js';
 import { updateServerConfigSchema } from '../validators/server-config.validator.js';
 import { SuccessResponse } from '../utils/api-response.util.js';
 import { AppError } from '../utils/app-error.util.js';
@@ -7,6 +7,11 @@ import { asyncHandler } from '../utils/async-handler.util.js';
 export const getServerConfig = asyncHandler(async (req, res) => {
   const config = await getConfig(req.params.guildId);
   return SuccessResponse(res, { message: 'Config fetched', data: config });
+});
+
+export const getGuildChannels = asyncHandler(async (req, res) => {
+  const channels = await validateGuildAndFetchChannels(req.params.guildId);
+  return SuccessResponse(res, { message: 'Channels fetched', data: { channels } });
 });
 
 export const putServerConfig = asyncHandler(async (req, res) => {
