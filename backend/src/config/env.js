@@ -5,7 +5,9 @@ dotenv.config();
 const env = {
   nodeEnv: process.env.NODE_ENV || 'development',
   port: parseInt(process.env.PORT, 10) || 3000,
-  corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+  // Comma-separated list — supports local dev + one or more deployed
+  // frontend origins at once (e.g. Vercel + a custom domain).
+  corsOrigin: (process.env.CORS_ORIGIN || 'http://localhost:5173').split(',').map((origin) => origin.trim()),
 
   mongodbUri: process.env.MONGODB_URI || 'mongodb://localhost:27017/discord-bot',
 
