@@ -31,6 +31,39 @@ and then caught itself.
    (`-d -t vite -b base -p nova --no-monorepo`) once we found it in `--help`,
    instead of spending more turns on TTY workarounds.
 
+## A requirement that quietly slipped
+
+Worth calling out on its own, separate from the "Decisions I made" note
+above, because of how it happened rather than what it was. The core
+requirement is one specific sentence: an admin "adds your bot and picks a
+channel it can post to." Somewhere in the middle of building this out, the
+actual implementation drifted into a bare Guild ID text field that fed
+straight into command registration — nothing checking the bot was actually
+a member of that server, no channel list, no picker. No validation at all
+that the ID typed in meant anything.
+
+The dangerous part wasn't that it was broken — it was that it *worked*.
+The happy path tested clean: paste a real guild ID, commands got
+registered, everything green. That's exactly the shape of gap that survives
+testing, because the tests were written against the implementation as it
+stood, not against the spec. Nothing failed. Nothing threw. It just quietly
+wasn't what was asked for, and it would have stayed that way if the core
+requirement line hadn't gotten a second, more literal read.
+
+Fixed by adding a real validation step (an actual Discord API call
+confirming bot membership in that guild before accepting the ID at all),
+then a genuine channel-fetch-and-pick step (list the guild's real channels,
+pick one from a dropdown, save that alongside the guild), with the
+auto-registration behavior folded into that same save action rather than
+living on its own.
+
+Honestly, this one cost real time to unwind — new endpoint, new frontend
+step, retesting the whole connect flow — and the root cause wasn't a tricky
+bug, it was checking the spec loosely early on and trusting that "it runs
+end to end" meant "it does what was asked." Those aren't the same thing,
+and a one-line requirement is easy to satisfy by accident in a way that
+looks complete until you go back and read it again.
+
 ## Hardest bug
 
 The most serious one wasn't caught by writing tests — it was caught by
@@ -97,6 +130,8 @@ the Slack-mirror pattern too literally:
   deployment.
 - Interactive components (buttons) and a modal-based `/report` — both listed
   stretch goals, both skipped to keep the core reliable within the time box.
-- Multi-server isolation is partially there (config is already keyed by
-  `guildId`), but there's no UI to list/pick from servers the bot is
-  actually in — right now you paste a guild ID in by hand.
+- Multi-server isolation is partially there (config is keyed by `guildId`,
+  and connecting one now validates membership + picks a real channel — see
+  above), but there's still no UI to *list* which servers the bot is
+  currently in — you paste a Guild ID in by hand rather than picking from a
+  list. A `GET /guilds` (bot's own guild list) call would close that gap.

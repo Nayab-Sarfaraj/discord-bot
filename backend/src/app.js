@@ -15,6 +15,11 @@ const app = express();
 app.set('trust proxy', 1);
 
 app.use(helmet());
+
+// Minimal ping target for uptime cron — plain text, no JSON/DB/CORS
+// involvement, so there's nothing that can bloat the response.
+app.get('/', (req, res) => res.status(200).send('OK'));
+
 app.use(
   cors({
     credentials: true,
