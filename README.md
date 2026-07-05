@@ -5,6 +5,10 @@ request, records it, replies in Discord, mirrors a notification to Slack via
 a background queue, and shows a live-updating log on a password-protected
 admin dashboard.
 
+## Demo
+
+[Loom walkthrough](https://www.loom.com/share/10248f782e164e528c10c4a77520c2f4)
+
 ## What it does
 
 - `/report <text>` and `/status` slash commands, registered both guild-scoped
